@@ -10,10 +10,18 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
-{
-}
-
+                       ),
+                       parameters (*this, nullptr, "PARAMS",
+                        {
+                            std::make_unique<juce::AudioParameterFloat>(
+                                "gain",        // parameter ID
+                                "Gain",        // parameter name
+                                juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f),
+                                0.0f)
+                            })
+                            {
+                                gainParam = parameters.getRawParameterValue ("gain");
+                            }
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
 }
@@ -126,6 +134,9 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ignoreUnused (midiMessages);
 
+    const float gainDB = *gainParam;
+    const float gainLinear = juce::Decibels::decibelsToGain(gainDB);
+
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -150,6 +161,9 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         auto* channelData = buffer.getWritePointer (channel);
         juce::ignoreUnused (channelData);
         // ..do something to the data...
+
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+            channelData[sample] *= gainLinear;
     }
 }
 
@@ -170,14 +184,18 @@ void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
+    juce::MemoryOutputStream stream(destData, true);
+    parameters.state.writeToStream(stream);
 }
 
 void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
+    auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
+
+    if (tree.isValid())
+        parameters.state = tree;
 }
 
 //==============================================================================
