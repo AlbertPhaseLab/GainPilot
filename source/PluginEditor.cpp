@@ -21,33 +21,39 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     gainLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(gainLabel);
 
+    gainSlider.setLookAndFeel(&lookAndFeel);
+
     setSize (300, 300);
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
+    gainSlider.setLookAndFeel(nullptr);
 }
 
 //==============================================================================
 void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::black);
+    g.fillAll(juce::Colour(0xff1e1e1e));
 
-    g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawFittedText("GainPilot", getLocalBounds().removeFromTop(40),
-                     juce::Justification::centred, 1);
+    // Header
+    g.setColour(juce::Colour(0xff3daee9));
+    g.setFont(juce::Font(22.0f, juce::Font::bold));
+    g.drawText("GainPilot", 0, 10, getWidth(), 30,
+               juce::Justification::centred);
+
+    // Subtitle
+    g.setColour(juce::Colours::grey);
+    g.setFont(12.0f);
+    g.drawText("Precision Gain Control",
+               0, 40, getWidth(), 20,
+               juce::Justification::centred);
 }
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
-
-    auto area = getLocalBounds();
-
-    auto title = area.removeFromTop(50);
-
-    gainSlider.setBounds(area.reduced(40));
-    gainLabel.setBounds(area.removeFromBottom(40));
+    auto area = getLocalBounds().reduced(30);
+    area.removeFromTop(60);
+    gainSlider.setBounds(area);
+    gainLabel.setBounds(0, getHeight() - 40, getWidth(), 30);
 }

@@ -7,6 +7,7 @@ set(PRODUCT_NAME "GainPilot")
 set(COMPANY_NAME "Albert Phase Lab")
 set(BUNDLE_ID "com.albertphaselab.GainPilot")
 set(FORMATS Standalone AU VST3)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(GainPilot VERSION 0.0.1)
 
@@ -70,6 +71,7 @@ target_include_directories(SharedCode INTERFACE
         "${CMAKE_CURRENT_SOURCE_DIR}/modules/JUCE/modules"
         "${CMAKE_BINARY_DIR}/AudioPluginData" # Include directory for AudioPluginData
 )
+# target_include_directories(SharedCode INTERFACE JuceLibraryCode)
 
 # Set JUCE flags for SharedCode
 target_compile_definitions(SharedCode INTERFACE
