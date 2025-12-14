@@ -8,11 +8,13 @@ struct PluginParameters
 {
     std::atomic<float>* gain = nullptr;
     std::atomic<float>* tone = nullptr;
+    std::atomic<float>* wetDry = nullptr;
 
     void init(juce::AudioProcessorValueTreeState& apvts)
     {
         gain = apvts.getRawParameterValue("gain");
         tone = apvts.getRawParameterValue("tone");
+        wetDry = apvts.getRawParameterValue("wetDry");
     }
 
     // Avoid accidental copies

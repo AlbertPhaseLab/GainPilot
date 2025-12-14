@@ -17,7 +17,9 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
           std::make_unique<juce::AudioParameterFloat>("gain", "Gain",
               juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f), 0.0f),
           std::make_unique<juce::AudioParameterFloat>("tone", "Tone",
-              juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f)
+              juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f),
+            std::make_unique<juce::AudioParameterFloat>("wetDry", "Wet/Dry",
+              juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f)
       })
 {
     params.init(apvts);
@@ -137,6 +139,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     float gainLinear = juce::Decibels::decibelsToGain(params.gain->load());
     float toneValue  = params.tone->load();
+    float wetDryValue = params.wetDry->load();
 
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -150,7 +153,11 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         auto* channelData = buffer.getWritePointer(channel);
 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            channelData[sample] *= gainLinear * (0.5f + toneValue * 0.5f);
+        {
+            float dry = channelData[sample]; // Control mix for the wet/dry slider
+            float wet = channelData[sample] * gainLinear * (0.5f + toneValue * 0.5f);
+            channelData[sample] = dry * (1.0f - wetDryValue) + wet * wetDryValue;
+        }
     }
 }
 
