@@ -3,6 +3,29 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 //==============================================================================
+
+struct PluginParameters
+{
+    std::atomic<float>* gain = nullptr;
+    std::atomic<float>* tone = nullptr;
+
+    void init(juce::AudioProcessorValueTreeState& apvts)
+    {
+        gain = apvts.getRawParameterValue("gain");
+        tone = apvts.getRawParameterValue("tone");
+    }
+
+    // Avoid accidental copies
+    PluginParameters(const PluginParameters&) = delete;
+    PluginParameters& operator=(const PluginParameters&) = delete;
+
+    // Can be moved
+    PluginParameters(PluginParameters&&) = default;
+    PluginParameters& operator=(PluginParameters&&) = default;
+
+    PluginParameters() = default;
+};
+
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
 {
 public:
@@ -43,11 +66,11 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //== Parameters ==
-    juce::AudioProcessorValueTreeState parameters;
+    juce::AudioProcessorValueTreeState apvts;
+
+    PluginParameters params;
 
 private:
     //==============================================================================
-    std::atomic<float>* gainParam = nullptr;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

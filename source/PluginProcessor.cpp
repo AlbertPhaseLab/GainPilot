@@ -1,27 +1,27 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "juce_audio_processors_headless/juce_audio_processors_headless.h"
 
 //==============================================================================
 AudioPluginAudioProcessor::AudioPluginAudioProcessor()
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       ),
-                       parameters (*this, nullptr, "PARAMS",
-                        {
-                            std::make_unique<juce::AudioParameterFloat>(
-                                "gain",        // parameter ID
-                                "Gain",        // parameter name
-                                juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f),
-                                0.0f)
-                            })
-                            {
-                                gainParam = parameters.getRawParameterValue ("gain");
-                            }
+    : AudioProcessor(BusesProperties()
+        #if ! JucePlugin_IsMidiEffect
+         #if ! JucePlugin_IsSynth
+          .withInput("Input", juce::AudioChannelSet::stereo(), true)
+         #endif
+          .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+        #endif
+      ),
+      apvts(*this, nullptr, "PARAMS",
+      {
+          std::make_unique<juce::AudioParameterFloat>("gain", "Gain",
+              juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f), 0.0f),
+          std::make_unique<juce::AudioParameterFloat>("tone", "Tone",
+              juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f)
+      })
+{
+    params.init(apvts);
+}
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
 }
@@ -132,38 +132,25 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
-    juce::ignoreUnused (midiMessages);
-
-    const float gainDB = *gainParam;
-    const float gainLinear = juce::Decibels::decibelsToGain(gainDB);
-
+    juce::ignoreUnused(midiMessages);
     juce::ScopedNoDenormals noDenormals;
+
+    float gainLinear = juce::Decibels::decibelsToGain(params.gain->load());
+    float toneValue  = params.tone->load();
+
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
+    // Limpiamos canales extra
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
+        auto* channelData = buffer.getWritePointer(channel);
 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            channelData[sample] *= gainLinear;
+            channelData[sample] *= gainLinear * (0.5f + toneValue * 0.5f);
     }
 }
 
@@ -185,7 +172,7 @@ void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
     juce::MemoryOutputStream stream(destData, true);
-    parameters.state.writeToStream(stream);
+    apvts.state.writeToStream(stream);
 }
 
 void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -195,7 +182,7 @@ void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeI
     auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
 
     if (tree.isValid())
-        parameters.state = tree;
+        apvts.state = tree;
 }
 
 //==============================================================================

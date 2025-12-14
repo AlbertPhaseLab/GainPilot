@@ -5,30 +5,43 @@
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    //juce::ignoreUnused (processorRef);
-    // Slider setup
-    gainSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    gainSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
-    gainSlider.setRange(0.0, 24.0, 0.01);
+    // Sliders conriguration
+    auto configureSlider = [this](juce::Slider& slider)
+    {
+        slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        slider.setLookAndFeel(&lookAndFeel);
+        addAndMakeVisible(slider);
+    };
 
-    gainAttachment = std::make_unique<SliderAttachment>(
-        processorRef.parameters, "gain", gainSlider);
+    configureSlider(gainSlider);
+    configureSlider(toneSlider);
 
-    addAndMakeVisible(gainSlider);
+    // Attach sliders to parameters
+    gainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processorRef.apvts, "gain", gainSlider);
+    toneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processorRef.apvts, "tone", toneSlider);
 
-    // Label setup
-    gainLabel.setText("Gain (dB)", juce::dontSendNotification);
-    gainLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(gainLabel);
+    // Labels configuration
+    auto configureLabel = [this](juce::Label& label, const juce::String& text)
+    {
+        label.setText(text, juce::dontSendNotification);
+        label.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(label);
+    };
 
-    gainSlider.setLookAndFeel(&lookAndFeel);
+    configureLabel(gainLabel, "Gain (dB)");
+    configureLabel(toneLabel, "Tone");
 
-    setSize (300, 300);
+    // Editor size
+    setSize(400, 200);
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
     gainSlider.setLookAndFeel(nullptr);
+    toneSlider.setLookAndFeel(nullptr);
 }
 
 //==============================================================================
@@ -39,21 +52,29 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     // Header
     g.setColour(juce::Colour(0xff3daee9));
     g.setFont(juce::Font(22.0f, juce::Font::bold));
-    g.drawText("GainPilot", 0, 10, getWidth(), 30,
-               juce::Justification::centred);
+    g.drawText("GainPilot", 0, 10, getWidth(), 30, juce::Justification::centred);
 
     // Subtitle
     g.setColour(juce::Colours::grey);
     g.setFont(12.0f);
-    g.drawText("Precision Gain Control",
-               0, 40, getWidth(), 20,
-               juce::Justification::centred);
+    g.drawText("Precision Gain Control", 0, 40, getWidth(), 20, juce::Justification::centred);
 }
 
+//==============================================================================
 void AudioPluginAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced(30);
-    area.removeFromTop(60);
-    gainSlider.setBounds(area);
-    gainLabel.setBounds(0, getHeight() - 40, getWidth(), 30);
+    int sliderSize = 100;
+    int sliderSpacing = 50; // space between sliders
+    int labelHeight = 20;
+
+    int startX = (getWidth() - 2 * sliderSize - sliderSpacing) / 2;
+    int ySlider = 60;
+
+    // Gain positioning
+    gainSlider.setBounds(startX, ySlider, sliderSize, sliderSize);
+    gainLabel.setBounds(gainSlider.getX(), gainSlider.getBottom() + 5, sliderSize, labelHeight);
+
+    // Tone positioning
+    toneSlider.setBounds(startX + sliderSize + sliderSpacing, ySlider, sliderSize, sliderSize);
+    toneLabel.setBounds(toneSlider.getX(), toneSlider.getBottom() + 5, sliderSize, labelHeight);
 }
