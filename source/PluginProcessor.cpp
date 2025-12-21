@@ -98,7 +98,10 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    // juce::ignoreUnused (sampleRate, samplesPerBlock);
+
+    toneFilterL.prepare(sampleRate);
+    toneFilterR.prepare(sampleRate);
 }
 
 void AudioPluginAudioProcessor::releaseResources()
@@ -137,28 +140,46 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::ignoreUnused(midiMessages);
     juce::ScopedNoDenormals noDenormals;
 
-    float gainLinear = juce::Decibels::decibelsToGain(params.gain->load());
-    float toneValue  = params.tone->load();
-    float wetDryValue = params.wetDry->load();
+    float gainLinear = juce::Decibels::decibelsToGain(params.gain->load()); // dB to linear
+    float toneNorm  = params.tone->load(); // 0.0 = dark, 1.0 = bright
+    float wetDryNorm = params.wetDry->load(); // 0.0 = dry, 1.0 = wet
+
+    // Map tone 0–1 → 200–8000 Hz (log)
+    float cutoff = juce::jmap(toneNorm, 0.0f, 1.0f, 200.0f, 8000.0f); // 
+
+    toneFilterL.setCutoff(cutoff); // left channel
+    toneFilterR.setCutoff(cutoff); // right channel
 
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // Limpiamos canales extra
+    // Clear any output channels that didn't contain input data
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer(channel);
+        auto* channelData = buffer.getWritePointer(channel); // get pointer to channel data
+        auto& filter = (channel == 0) ? toneFilterL : toneFilterR; // select filter
 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float dry = channelData[sample]; // Control mix for the wet/dry slider
-            float wet = channelData[sample] * gainLinear * (0.5f + toneValue * 0.5f);
-            channelData[sample] = dry * (1.0f - wetDryValue) + wet * wetDryValue;
+            // --- DRY path ---
+            const float dry = channelData[sample]; // input sample
+
+            // --- WET / DSP path ---
+            float wet = dry * gainLinear; // apply gain
+            wet = filter.processSample(wet); // apply tone filter
+
+            // --- MIX ---
+            channelData[sample] = dry * (1.0f - wetDryNorm) + wet * wetDryNorm; // linear crossfade
         }
     }
+
+    // input ──► DRY ───────────────┐
+    //                              ├─► MIX ─► output
+    // input ──► DSP (tone, gain) ──┘
+
 }
 
 //==============================================================================
